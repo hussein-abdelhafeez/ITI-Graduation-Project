@@ -1,0 +1,363 @@
+
+
+
+Create PROC Agent_calls_Summary as 
+SELECT 
+    Agent AS "Agent Name",
+    SUM(CASE WHEN answered = 1 THEN 1 ELSE 0 END) AS "Number of answered calls",
+    SUM(CASE WHEN answered = 0 THEN 1 ELSE 0 END) AS "Number of Dropped calls",
+	Count(answered) AS "Total of calls",
+	SUM(CASE WHEN Resolved = 1 THEN 1 ELSE 0 END) AS "Total Resolved"
+FROM Call
+GROUP BY Agent;
+
+
+
+CREATE PROC calls_Summary_By_Agent @Agent_Name varchar(50) as
+SELECT 
+    Agent AS "Agent Name",
+    SUM(CASE WHEN answered = 1 THEN 1 ELSE 0 END) AS "Number of answered calls",
+    SUM(CASE WHEN answered = 0 THEN 1 ELSE 0 END) AS "Number of Dropped calls",
+	Count(answered) AS "Total of calls",
+	SUM(CASE WHEN Resolved = 1 THEN 1 ELSE 0 END) AS "Total Resolved"
+FROM Call
+WHERE Agent = @Agent_Name
+GROUP BY Agent;
+
+
+
+CREATE PROC calls_Summary_By_Topic   @Topic_Name varchar(100) as
+SELECT
+    Agent AS "Agent Name",
+    SUM(CASE WHEN answered = 1 THEN 1 ELSE 0 END) AS "Number of answered calls",
+    SUM(CASE WHEN answered = 0 THEN 1 ELSE 0 END) AS "Number of Dropped calls",
+	Count(answered) AS "Total of calls",
+	SUM(CASE WHEN Resolved = 1 THEN 1 ELSE 0 END) AS "Total Resolved",Topic
+FROM Call
+WHERE Topic in(@Topic_Name)
+GROUP BY Agent,Topic
+order by Agent;
+
+
+-- why exactly did customers churn?
+Create PROC Top_Churn_Reason_Percentage as
+SELECT TOP 5
+    Churn_Reason,Churn_Category,
+    ROUND(COUNT(Customer_ID) *100 / SUM(COUNT(Customer_ID)) OVER(), 1) AS churn_percentage
+FROM
+    Customer as c, Status as stat, Churn_Category as cat, Churn_Reason as r
+	   
+WHERE
+    Customer_Status = 'Churned' and c.Status_ID = stat.Status_ID and 
+	cat.Churn_Category_ID = r.Churn_Category_ID and c.Churn_reason_ID = r.Churn_reason_ID
+GROUP BY 
+Churn_Reason,
+Churn_Category
+ORDER BY churn_percentage DESC;
+
+
+--5b. What offers did churned customers have?
+
+  
+CREATE PROC Churned_Customer_Distribution_By_Offer as
+SELECT  
+    Offer,
+    ROUND(COUNT(cust.Customer_ID) * 100.0 / SUM(COUNT(cust.Customer_ID)) OVER(), 1) AS churned
+FROM
+    Customer as Cust 
+	join Status as Stat on cust.Status_ID = stat.Status_ID
+WHERE
+    Customer_Status = 'Churned'
+GROUP BY
+Offer
+ORDER BY 
+churned DESC;
+
+------------------------------------------------------------------------
+
+
+
+CREATE PROCEDURE Churners_Premium_TSupport
+AS
+BEGIN
+	
+-- Did churners have premium tech support?
+
+SELECT 
+    ci.Premium_TSupport,
+    COUNT(c.Customer_ID) AS Churned,
+    ROUND(COUNT(c.Customer_ID) *100.0 / SUM(COUNT(c.Customer_ID)) OVER(),1) AS Churn_Percentage
+FROM
+    Customer_Internet ci, Customer c, Status s
+WHERE 
+     c.Customer_ID = ci.Customer_ID and c.Status_ID = s.Status_ID and s.Customer_Status = 'Churned'
+GROUP BY ci.Premium_TSupport
+ORDER BY Churned DESC;
+
+END 
+
+
+
+CREATE PROCEDURE Cities_Churn_Rates
+AS
+BEGIN
+
+-- Which cities have the highest churn rates?
+
+SELECT
+    l.City,
+    COUNT(c.Customer_ID) AS Churned,
+    CEILING(COUNT(CASE WHEN s.Customer_Status = 'Churned' THEN c.Customer_ID ELSE NULL END) * 100.0 / COUNT(c.Customer_ID)) AS Churn_Rate
+FROM
+    location l , Customer c, Status s
+WHERE c.Location_ID = l.Location_ID and c.Status_ID = s.Status_ID
+GROUP BY
+    l.City
+HAVING
+    COUNT(c.Customer_ID)  > 30
+AND
+    COUNT(CASE WHEN s.Customer_Status = 'Churned' THEN c.Customer_ID ELSE NULL END) > 0
+ORDER BY
+    Churn_Rate DESC;
+END
+
+
+
+CREATE PROCEDURE Cities_Highest_Churn_Rates
+AS
+BEGIN
+
+-- Which cities have the highest churn rates?
+SELECT
+    TOP 4 l.City,
+    COUNT(c.Customer_ID) AS Churned,
+    CEILING(COUNT(CASE WHEN s.Customer_Status = 'Churned' THEN c.Customer_ID ELSE NULL END) * 100.0 / COUNT(c.Customer_ID)) AS Churn_Rate
+FROM
+    location l , Customer c, Status s
+WHERE c.Location_ID = l.Location_ID and c.Status_ID = s.Status_ID
+GROUP BY
+    l.City
+HAVING
+    COUNT(c.Customer_ID)  > 30
+AND
+    COUNT(CASE WHEN s.Customer_Status = 'Churned' THEN c.Customer_ID ELSE NULL END) > 0
+ORDER BY
+    Churn_Rate DESC;
+END
+
+
+
+CREATE PROCEDURE InsertCustomer
+       -- Add the parameters for the stored procedure here
+       @Customer_ID int,
+       @Location_ID int,
+       @Status_ID int,
+       @Churn_reason_ID int,
+	   @Contract_ID int,
+	   @Number_Of_Referrals int,
+	   @Referred_A_Friend bit,
+	   @Gender varchar(10),
+	   @Age int,
+	   @Married bit,
+	   @Dependents bit,
+	   @Number_Of_Dependents int,
+	   @Quarter varchar(10),
+	   @Tenure_In_Months int,
+	   @Offer varchar(10),
+	   @Paperless_Billing bit,
+	   @Payment_Method varchar(50),
+	   @Monthly_Charge Float,
+	   @Total_Charges Float,
+	   @Total_Refunds Float,
+	   @Total_Revenue Float,
+	   @CLTV Float,
+	   @Churn_Score int,
+	   @Satisfaction_Score int
+AS
+BEGIN
+      
+    -- Insert statements for procedure here
+       INSERT INTO Customer
+              (Customer_ID, Location_ID, Status_ID, Churn_reason_ID, Contract_ID, Number_Of_Referrals,
+			  Referred_A_Friend, Gender, Age, Married, Dependents, Number_Of_Dependents, Quarter,
+			  Tenure_In_Months, Offer, Paperless_Billing, Payment_Method, Monthly_Charge, Total_Charges,
+			  Total_Refunds, Total_Revenue, CLTV, Churn_Score, Satisfaction_Score)
+       VALUES
+              (@Customer_ID, @Location_ID, @Status_ID, @Churn_reason_ID, @Contract_ID, @Number_Of_Referrals,
+			  @Referred_A_Friend, @Gender, @Age, @Married, @Dependents, @Number_Of_Dependents, @Quarter,
+			  @Tenure_In_Months, @Offer, @Paperless_Billing, @Payment_Method, @Monthly_Charge, @Total_Charges,
+			  @Total_Refunds, @Total_Revenue, @CLTV, @Churn_Score, @Satisfaction_Score)
+END
+
+
+--------------------------------------------
+
+
+
+-- Update status, 
+Create Procedure Update_Status @Status varchar(50), @Customer_ID int as 
+begin
+if ( @Status ='Churned')
+begin
+update Customer Set Status_ID = 3 where Customer_ID = @Customer_ID
+end
+else if ( @Status ='Stayed')
+begin
+update Customer Set Status_ID = 2 where Customer_ID = @Customer_ID
+end
+else if ( @Status ='Joined')
+begin
+update Customer Set Status_ID = 1 where Customer_ID = @Customer_ID
+end
+end
+drop procedure dbo.Update_Status
+
+
+Execute dbo.Update_Status 'Joined', 1
+
+
+
+--1.How much revenue was lost to churned customers?, 
+
+CREATE PROCEDURE Revenue_of_ChurnedCustomer
+as
+begin
+SELECT Customer_Status, 
+COUNT(Customer_ID) AS customer_count,
+ROUND((SUM(Total_Revenue) * 100.0) / SUM(SUM(Total_Revenue)) OVER(), 1) AS Revenue_Percentage 
+FROM Customer, Status where Customer.Status_ID = Status.Status_ID
+GROUP BY Customer_Status;
+End
+
+
+
+--5c. What internet type did churners have?
+create procedure InternetType_for_Status @Customer_Status varchar(50) as
+begin
+SELECT
+    Internet_Type,
+    COUNT(Customer.Customer_ID) AS Count_Customer,
+    ROUND(COUNT(Customer.Customer_ID) * 100.0 / SUM(COUNT(Customer.Customer_ID)) OVER(), 1) AS Status_Precentage
+FROM
+    Internet_Service, Customer, Status, Customer_Internet
+WHERE 
+  Customer.Customer_ID = Customer_Internet.Customer_ID and 
+  Customer_Internet.Internet_Service_ID = Internet_Service.Internet_Service_ID and
+  Customer.Status_ID = Status.Status_ID and
+  Status.Customer_Status = @Customer_Status
+GROUP BY
+Internet_Type
+ORDER BY 
+Count_Customer DESC;
+end
+
+EXEC dbo.InternetType_for_Status @Customer_Status = 'joined';
+
+-- What Internet Type did 'Competitor' churners have?
+create procedure InternetType_ChurnCategory @Churn_Category varchar(50) as
+begin
+SELECT
+    Internet_Type,
+    Churn_Category,
+    ROUND(COUNT(Customer.Customer_ID) * 100.0 / SUM(COUNT(Customer.Customer_ID)) OVER(), 1) AS Churned_Percentage
+FROM
+    Internet_Service,Customer_Internet, Churn_Category, Churn_Reason ,Customer, Status
+WHERE 
+	 Customer.Customer_ID = Customer_Internet.Customer_ID and 
+     Customer_Internet.Internet_Service_ID = Internet_Service.Internet_Service_ID and
+	 Customer.Status_ID = Status.Status_ID and
+	 Customer.Churn_reason_ID = Churn_Reason.Churn_Reason_ID and
+	 Churn_Reason.Churn_Category_ID = Churn_Category.Churn_Category_ID and
+     Status.Customer_Status = 'Churned' and
+     Churn_Category.Churn_Category = @Churn_Category
+GROUP BY
+Internet_Type,
+Churn_Category
+ORDER BY Churned_Percentage DESC 
+end;
+
+Execute dbo.InternetType_ChurnCategory 'Price'
+
+------------------------------------------------------------------------
+
+
+
+create proc churnreason @category varchar(50) 
+as 
+begin
+SELECT 
+  cr.Churn_Reason,  ca.Churn_Category ,
+  ROUND(SUM(cu.Total_Revenue),0)AS Churned_Revenue ,
+   CEILING((COUNT(Customer_ID) * 100.0) / SUM(COUNT(Customer_ID)) OVER()) AS Churn_Percentage
+FROM 
+  Customer cu , Churn_Category ca  , Status s , Churn_Reason cr
+ WHERE 
+ cu.Churn_reason_ID = cr.Churn_Reason_ID and  s.Status_ID =cu.Status_ID
+   and ca.Churn_Category_ID=cr.Churn_Category_ID and s.Customer_Status = 'Churned' 
+  and ca.Churn_Category =@category
+GROUP BY 
+  cr.Churn_Reason ,ca.Churn_Category
+  end
+
+
+CREATE PROCEDURE sp_DeleteAndUpdateOfferForCustomer
+(
+    @old_offer_name varchar(10) ,
+	@new_offer_name varchar(10) 
+)
+AS
+BEGIN
+
+    -- Delete the old offer from the customer's  table.
+    DELETE FROM Customer
+    WHERE Offer =  @old_offer_name
+
+    -- Update the customer's offer with the new offer.
+    UPDATE Customer
+    SET Offer =  @new_offer_name
+END
+GO
+
+
+-- What Customer status by age ?
+create proc customer_det @age1 int , @age2 int
+as
+begin
+SELECT 
+    age ,Gender , Customer_Status ,
+    COUNT(Customer_ID) AS No_customer 
+FROM 
+Customer cu  , Status s
+WHERE
+
+ s.Status_ID=cu.Status_ID 
+ --and Age between @age1 and @age2
+  
+GROUP BY
+   age ,Gender , Customer_Status
+ORDER BY 
+    age ;
+end 
+
+create proc sp_contract 
+ as 
+ begin
+ SELECT 
+Contract.Contract_Type,
+Customer.Payment_Method,
+Round (SUM(Customer.Total_Charges),2) AS Total_charge ,
+Round (Avg(Customer.Total_Revenue),2) AS Avg_Revenue 
+FROM 
+Contract INNER JOIN  Customer 
+ON Contract.Contract_ID = Customer.Contract_ID 
+GROUP BY Contract.Contract_Type,  Customer.Payment_Method
+ORDER BY  Contract.Contract_Type
+End 
+
+
+
+
+
+
+
+
