@@ -1,0 +1,82 @@
+/****** Script for SelectTopNRows command from SSMS  ******/
+-- Test Case from DWH - Test 2
+use [DWH - Test2]
+SELECT d_call.[Call_ID]
+      ,d_call.[Customer_Id]
+      ,[Agent]
+      ,d_call.[Date_Of_Call]
+      ,[Time_Of_Call]
+      ,[Resolved]
+      ,[Answered]
+      ,[Topic]
+      ,[Referred_A_Friend]
+      ,[Gender]
+      ,[Age]
+      ,[Married]
+      ,[Dependents]
+      ,[Offer]
+      ,[Paperless_Billing]
+      ,[Payment_Method]
+	   ,[Monthly_Charge]
+      ,[Total_Charges]
+      ,[Total_Refunds]
+      ,[Total_Revenue]
+	  ,[Online_Security]
+      ,[Online_Backup]
+      ,[Device_Pro_Plan]
+      ,[Premium_TSupport]
+	  ,[Customer_Status],
+	  d_int_type.Internet_Type
+  FROM [DWH - Test2].[dbo].[Dim_Call] as d_call
+  join [DWH - Test2].[dbo].[Fact_Table] as fact
+  on d_call.Customer_Id = fact.Customer_ID
+  join [DWH - Test2].[dbo].[Dim_Internet_Service_details] as d_int_det
+  on fact.internet_Service_ID= d_int_det.Internet_Service_ID
+  join Dim_Status d_status on 
+  fact.Status_ID = d_status.Status_ID
+    join [DWH - Test2].[dbo].[Dim_Internet_Type] as d_int_type
+  on d_int_det.Internet_Type_ID = d_int_type.Internet_Type_ID
+  where fact.Location_ID=100
+
+
+  ------------------------------------
+-- Test Case from GP 
+use GP
+  SELECT d_call.[Call_ID]
+      ,d_call.[Customer_Id]
+      ,[Agent]
+      ,d_call.[Date_Of_Call]
+      ,[Time_Of_Call]
+      ,[Resolved]
+      ,[Answered]
+      ,[Topic]
+      ,[Referred_A_Friend]
+      ,[Gender]
+      ,[Age]
+      ,[Married]
+      ,[Dependents]
+      ,[Offer]
+      ,[Paperless_Billing]
+      ,[Payment_Method]
+	   ,d_cust.[Monthly_Charge]
+      ,d_cust.[Total_Charges]
+      ,d_cust.[Total_Refunds]
+      ,d_cust.[Total_Revenue]
+	  ,[Online_Security]
+      ,[Online_Backup]
+      ,[Device_Pro_Plan]
+      ,[Premium_TSupport]
+	  ,[Customer_Status],
+	  int_ser.Internet_Type
+  FROM [GP].[dbo].[Call] as d_call
+  join [GP].[dbo].[Customer] d_cust 
+  on d_call.Customer_Id = d_cust.Customer_ID
+  join Customer_Internet as cust_int
+  on cust_int.Customer_ID = d_cust.Customer_ID
+  join Status as st
+  on d_cust.Status_ID = st.Status_ID
+  join Internet_Service as int_ser
+  on cust_int.Internet_Service_ID = int_ser.Internet_Service_ID
+  join Location as loc
+  on loc.Location_ID = d_cust.Location_ID
+  where loc.Location_ID=100

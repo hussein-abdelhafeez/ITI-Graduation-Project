@@ -1,0 +1,314 @@
+Create Database [DWH - Test2]
+
+-- new_Customer_Services_Internet_Service
+create Table new_Customer_Services_Internet_Service (
+Customer_ID INT foreign key references Customer(Customer_ID),
+Service_ID int )
+
+BULK INSERT new_Customer_Services_Internet_Service
+FROM "C:\Users\HP\Desktop\grad\6- DWH\new DWH\Customer_Services_Internet_Service.csv"
+WITH
+(
+        FORMAT='CSV',
+        FIRSTROW=2
+)
+GO 
+
+
+
+
+
+create Table new_Customer_Services_Internet_Service_details (
+Service_ID INT primary key,
+Internet_Service_ID int,
+Online_Security	bit , 
+Online_Backup bit, 
+Device_Pro_Plan bit,	
+Premium_TSupport bit,
+Streaming_TV bit,	
+Streaming_Movies bit,	
+Streaming_Music bit,
+Unlimited_Data bit
+)
+
+BULK INSERT new_Customer_Services_Internet_Service_details
+FROM "C:\Users\HP\Desktop\grad\6- DWH\new DWH\new_Customer_Services_Internet_Service_details.csv"
+WITH
+(
+        FORMAT='CSV',
+        FIRSTROW=2
+)
+GO 
+
+
+
+
+-- Dim_Phone_Service_ID
+create Table Dim_Phone_Service_ID (
+Phone_Service_ID INT PRIMARY Key,	
+Phone_Service bit,	
+Multiple_Lines bit 
+)
+
+BULK INSERT Dim_Phone_Service_ID
+FROM "C:\Users\HP\Desktop\grad\6- DWH\new DWH\Dim_Phone_Service _ID.csv"
+WITH
+(
+        FORMAT='CSV',
+        FIRSTROW=2
+)
+GO 
+
+
+-- Dim_Phone_Service 
+create Table Dim_Phone_Service (
+Customer_ID	INT PRIMARY Key,
+Phone_Service_ID int FOREIGN KEY (Phone_Service_ID) REFERENCES Dim_Phone_Service_ID(Phone_Service_ID)
+)
+
+BULK INSERT Dim_Phone_Service
+FROM "C:\Users\HP\Desktop\grad\6- DWH\new DWH\Dim_Phone_Service .csv"
+WITH
+(
+        FORMAT='CSV',
+        FIRSTROW=2
+)
+GO 
+
+
+
+
+================================
+
+
+-- Create Fact Table
+
+SELECT
+Customer.Customer_ID,
+Customer.Contract_ID,
+Customer.Location_ID,
+Customer.Status_ID,
+Customer.Churn_reason_ID,
+GP.dbo.new_Customer_Services_Internet_Service.Service_ID 'Internet_Service_ID',
+Call.Call_ID,
+GP.dbo.Dim_Phone_Service.Phone_Service_ID,
+Customer.Referred_A_Friend,
+Customer.Gender,
+Customer.Age,
+Customer.Married,
+Customer.Dependents,
+Customer.Offer,
+Customer.Paperless_Billing,
+Customer.Payment_Method, 
+Customer.Monthly_Charge,
+Customer.Total_Charges,
+Customer.Total_Refunds,
+Customer.Total_Revenue,
+Customer.Tenure_In_Months,
+Customer.Satisfaction_Score,
+Customer.Churn_Score,
+Customer.CLTV,
+Customer.Number_Of_Referrals,
+Customer.Number_Of_Dependents,
+Phone_Service.Total_Long_Distance_Charges,
+Phone_Service.Avg_Monthly_Long_Distance_Charges,
+Call.Duration,
+Call.Speed_Of_Answer_In_Seconds,
+Call.Satisfaction_Rating,
+Call.Date_Of_Call
+
+INTO [DWH - Test2].[dbo].[Fact_Table]
+FROM GP.dbo.Customer 
+
+full join  [GP].[dbo].[Customer_Internet]
+	 on Customer.Customer_ID = [Customer_Internet].[Customer_ID]
+full join GP.dbo.Internet_Service  
+	on Customer_Internet.Internet_Service_ID =Internet_Service .Internet_Service_ID	
+full join [GP].[dbo].[Contract] 
+	on [GP].[dbo].[Contract].[Contract_ID] = Customer.Contract_ID
+full join [GP].[dbo].[Status]
+	on Customer.Status_ID = Status.Status_ID
+ full join GP.dbo.call 
+	on GP.dbo.call.Customer_Id = Customer.Customer_ID
+ full join GP.dbo.Churn_Reason
+	on GP.dbo.Churn_Reason.Churn_Reason_ID = Customer.Churn_reason_ID
+full join GP.dbo.Churn_Category
+	on Churn_Category.Churn_Category_ID = Churn_Reason.Churn_Category_ID
+full join GP.dbo.Location
+	on GP.dbo.Location.Location_ID = Customer.Location_ID
+full join [GP].[dbo].[Population]
+	on GP.dbo.Location.Zipcode = [GP].[dbo].[Population].[Zipcode_ID]
+full join [GP].[dbo].[phone_service]
+	on Customer.Customer_ID = phone_service.Customer_Id
+ join GP.dbo.new_Customer_Services_Internet_Service 
+	on GP.dbo.new_Customer_Services_Internet_Service.Customer_ID=Customer.Customer_ID
+full join GP.dbo.new_Customer_Services_Internet_Service_details
+	on GP.dbo.new_Customer_Services_Internet_Service_details.Service_ID=GP.dbo.new_Customer_Services_Internet_Service.Service_ID
+join [GP].[dbo].[Dim_Phone_Service]
+	on [GP].[dbo].[Dim_Phone_Service].Customer_ID = Customer.Customer_ID
+
+-------------------------------------------
+	
+-- Population 
+SELECT  *
+INTO [DWH - Test2].[dbo].[Dim_Population]
+FROM  GP.dbo.Population
+
+ALTER TABLE Dim_Population ADD CONSTRAINT PK_Population_Constraint PRIMARY KEY (Zipcode_ID);
+
+
+---------------------------------------------
+
+-- Location 
+SELECT  *
+INTO  [DWH - Test2].[dbo].[Dim_Location]
+FROM  GP.dbo.Location
+ALTER TABLE Dim_Location ADD CONSTRAINT PK_Location_Constraint  PRIMARY KEY (Location_ID);
+
+ALTER TABLE Dim_Location ADD CONSTRAINT FK_Location_Constraint  FOREIGN KEY (Zipcode) REFERENCES
+ Dim_Population(Zipcode_ID);
+ 
+ ---------------------------------
+
+  -- Dim_Phone_Service
+SELECT  *
+INTO  [DWH - Test2].[dbo].[Dim_Phone_Service]
+FROM  [GP].[dbo].[Dim_Phone_Service_ID]
+
+ALTER TABLE Dim_Phone_Service ADD CONSTRAINT PK_Phone_Service_Constraint  PRIMARY KEY (Phone_Service_ID);
+
+----------------------------
+
+
+-- Dim Churn Category
+create Table [DWH - Test2].[dbo].[Dim_Churn_Category](
+Churn_Category_ID INT ,
+Churn_Category VARCHAR(50)
+ constraint PK_Churn_Category_Constraint primary key(Churn_Category_ID))
+
+ insert into [DWH - Test2].[dbo].[Dim_Churn_Category]
+ select * from [GP].[dbo].[Churn_Category]
+
+
+
+----Dim  Churn  Reson
+
+create Table [DWH - Test2].[dbo].[Dim_Churn_Reson](
+Churn_Reason_ID INT ,
+Churn_Category_ID INT,
+Churn_Reason VARCHAR(150) 
+	constraint PK_Churn_Reason_Constraint  primary key(Churn_Reason_ID),
+	constraint FK_Churn_Category_Constraint  foreign key (Churn_Category_ID)
+	references Dim_Churn_Category (Churn_Category_ID) )
+
+ insert into [DWH - Test2].[dbo].[Dim_Churn_Reson]
+ select * from [GP].[dbo].Churn_Reason
+ 
+
+ --------------------------------------------
+
+ 
+ create Table Dim_Internet_Service_details (
+Internet_Service_ID int,
+Internet_Type_ID int,
+Online_Security	bit , 
+Online_Backup bit, 
+Device_Pro_Plan bit,	
+Premium_TSupport bit,
+Streaming_TV bit,	
+Streaming_Movies bit,	
+Streaming_Music bit,
+Unlimited_Data bit
+constraint Pk_Dim_Internet_Service_details_Constraint  primary key(Internet_Service_ID)
+)
+
+insert into [DWH - Test2].[dbo].[Dim_Internet_Service_details]
+ select * from [GP].[dbo].[new_Customer_Services_Internet_Service_details]
+
+
+ -------------------------------
+ 
+SELECT  [Internet_Service_ID] as 'Internet_Type_ID'
+      ,[Internet_Type]
+INTO [DWH - Test2].[dbo].[Dim_Internet_Type]
+FROM  [GP].[dbo].[Internet_Service]
+
+ALTER TABLE Dim_Internet_Type ADD CONSTRAINT PK_Internet_Type_Constraint  PRIMARY KEY (Internet_Type_ID);
+
+ALTER TABLE Dim_Internet_Service_details ADD CONSTRAINT FK_Internet_Type_ID  FOREIGN KEY (Internet_Type_ID) REFERENCES Dim_Internet_Type(Internet_Type_ID);
+
+--------------------------------
+
+
+ --Date-Dim
+create table [DWH - Test2].[dbo].[Dim_Date](Date Date Primary Key)
+BULK INSERT  [DWH - Test2].[dbo].[Dim_Date]
+FROM "C:\Users\HP\Desktop\grad\6- DWH\Final DWH\Dim Date.csv"
+WITH
+(
+        FORMAT='CSV',
+        FIRSTROW=2
+)
+GO
+
+------------------------------------
+
+
+
+ -- Dim_Contract
+SELECT  *
+INTO [DWH - Test2].[dbo].[Dim_Contract]
+FROM  [GP].[dbo].[Contract]
+
+ALTER TABLE Dim_Contract ADD CONSTRAINT PK_Contract_Constraint  PRIMARY KEY (Contract_ID);
+
+----------------------------------------
+
+-- Dim_Status
+SELECT  *
+INTO [DWH - Test2].[dbo].[Dim_Status]
+FROM  [GP].[dbo].[Status]
+
+ALTER TABLE Dim_Status ADD CONSTRAINT PK_Status_Constraint  PRIMARY KEY (Status_ID);
+
+
+----------------------------------
+
+
+-- Dim_Call
+
+SELECT  call.Call_ID
+	  ,call.Customer_Id
+      ,call.Agent
+      ,call.Date_Of_Call
+      ,call.Time_Of_Call
+      ,call.Resolved
+      ,call.Answered
+      ,call.Topic
+INTO [DWH - Test2].[dbo].[Dim_Call]
+FROM  [GP].[dbo].[Call]
+
+ALTER TABLE Dim_Call ADD CONSTRAINT PK_Call_Constraint  PRIMARY KEY (Call_ID);
+
+
+---------------------------------
+
+
+--Fact Table Constraints 
+ALTER TABLE Fact_Table ADD CONSTRAINT FK_Contract_Constraint  FOREIGN KEY (Contract_ID) REFERENCES Dim_Contract(Contract_ID);
+
+ALTER TABLE Fact_Table ADD CONSTRAINT FK_Location_Constraint_Fact_Table  FOREIGN KEY (Location_ID) REFERENCES Dim_Location(Location_ID);
+ALTER TABLE Fact_table ADD CONSTRAINT FK_Status_Constraint  FOREIGN KEY (Status_ID) REFERENCES Dim_Status(Status_ID); 
+ALTER TABLE Fact_Table ADD CONSTRAINT FK_Reason_Constraint  FOREIGN KEY (Churn_reason_ID) REFERENCES Dim_Churn_Reson(Churn_reason_ID);
+ALTER TABLE Fact_Table ADD CONSTRAINT FK_Call_Constraint FOREIGN KEY (Call_ID) REFERENCES Dim_Call(Call_ID);
+ALTER TABLE Fact_Table ADD CONSTRAINT FK_Internet_Service_Constraint FOREIGN KEY (Internet_Service_ID) REFERENCES Dim_Internet_Service_details(Internet_Service_ID);
+
+ALTER TABLE Fact_Table ADD CONSTRAINT FK_Phone_Service_Constraint FOREIGN KEY (Phone_Service_ID) REFERENCES Dim_Phone_Service(Phone_Service_ID);
+ALTER TABLE Fact_Table ADD CONSTRAINT FK_Date_Call_Constraint FOREIGN KEY (Date_Of_Call) REFERENCES Dim_Date(Date);
+
+
+
+
+
+SELECT *
+FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
